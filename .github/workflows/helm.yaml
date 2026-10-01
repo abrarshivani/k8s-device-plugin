@@ -36,4 +36,6 @@ jobs:
       uses: azure/setup-helm@v5.0.1
     - name: Check values.schema.json is up to date
       run: make check-helm-values-schema
+    - name: Lint chart
+      run: make lint-helm
     - run: make test-helm
