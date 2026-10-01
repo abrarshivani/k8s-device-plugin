@@ -269,17 +269,17 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 		{
 			description:                  "boolean is rejected",
 			nvidiaDriverCapabilitiesJSON: "true",
-			expectedErrorSubstring:       "Value 'nvidiaDriverCapabilities' must be a string, got bool: true",
+			expectedErrorSubstring:       "at '/nvidiaDriverCapabilities': got boolean, want null or string",
 		},
 		{
 			description:                  "number is rejected",
 			nvidiaDriverCapabilitiesJSON: "1",
-			expectedErrorSubstring:       "Value 'nvidiaDriverCapabilities' must be a string",
+			expectedErrorSubstring:       "at '/nvidiaDriverCapabilities': got number, want null or string",
 		},
 		{
 			description:                  "list is rejected",
 			nvidiaDriverCapabilitiesJSON: `["compute","utility"]`,
-			expectedErrorSubstring:       "Value 'nvidiaDriverCapabilities' must be a string, got slice: [compute utility]",
+			expectedErrorSubstring:       "at '/nvidiaDriverCapabilities': got array, want null or string",
 		},
 	}
 
@@ -293,7 +293,7 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 				options.SetJsonValues = map[string]string{"nvidiaDriverCapabilities": tc.nvidiaDriverCapabilitiesJSON}
 			}
 
-			// validation.yml is evaluated even when only the daemonset is selected for output.
+			// values.schema.json is enforced even when only the daemonset is selected for output.
 			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
 			if tc.expectedErrorSubstring != "" {
 				require.ErrorContains(t, err, tc.expectedErrorSubstring)

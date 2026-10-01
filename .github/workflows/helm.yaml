@@ -32,4 +32,8 @@ jobs:
       uses: actions/setup-go@v7
       with:
         go-version: ${{ inputs.golang_version }}
+    - name: Install Helm
+      uses: azure/setup-helm@v5.0.1
+    - name: Check values.schema.json is up to date
+      run: make check-helm-values-schema
     - run: make test-helm
