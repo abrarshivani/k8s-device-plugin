@@ -22,9 +22,15 @@ on:
         type: string
 
 jobs:
-  test:
-    name: Test
+  test-helm-version:
+    name: Test (Helm ${{ matrix.helm_version }})
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        # 3.14.4 is the version the release workflows package the chart with.
+        helm_version:
+          - 3.14.4
+          - latest
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
@@ -34,8 +40,24 @@ jobs:
         go-version: ${{ inputs.golang_version }}
     - name: Install Helm
       uses: azure/setup-helm@v5.0.1
+      with:
+        version: ${{ matrix.helm_version }}
     - name: Check values.schema.json is up to date
       run: make check-helm-values-schema
     - name: Lint chart
       run: make lint-helm
     - run: make test-helm
+
+  # Branch protection requires a check named "Test", which a matrix job never reports.
+  test:
+    name: Test
+    needs:
+    - test-helm-version
+    # A skipped job satisfies a required check, so run even when a Helm version failed.
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+    - name: Check that every Helm version passed
+      env:
+        HELM_VERSION_TESTS_RESULT: ${{ needs.test-helm-version.result }}
+      run: test "$HELM_VERSION_TESTS_RESULT" = success
