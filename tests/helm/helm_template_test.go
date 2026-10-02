@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"maps"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -247,7 +248,7 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 		description                   string
 		nvidiaDriverCapabilitiesJSON  string
 		expectedDriverCapabilitiesEnv *v1.EnvVar
-		expectedErrorSubstring        string
+		expectSchemaRejection         bool
 	}{
 		{
 			description:                   "default",
@@ -269,17 +270,17 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 		{
 			description:                  "boolean is rejected",
 			nvidiaDriverCapabilitiesJSON: "true",
-			expectedErrorSubstring:       "at '/nvidiaDriverCapabilities': got boolean, want null or string",
+			expectSchemaRejection:        true,
 		},
 		{
 			description:                  "number is rejected",
 			nvidiaDriverCapabilitiesJSON: "1",
-			expectedErrorSubstring:       "at '/nvidiaDriverCapabilities': got number, want null or string",
+			expectSchemaRejection:        true,
 		},
 		{
 			description:                  "list is rejected",
 			nvidiaDriverCapabilitiesJSON: `["compute","utility"]`,
-			expectedErrorSubstring:       "at '/nvidiaDriverCapabilities': got array, want null or string",
+			expectSchemaRejection:        true,
 		},
 	}
 
@@ -295,8 +296,8 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 
 			// values.schema.json is enforced even when only the daemonset is selected for output.
 			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
-			if tc.expectedErrorSubstring != "" {
-				require.ErrorContains(t, err, tc.expectedErrorSubstring)
+			if tc.expectSchemaRejection {
+				requireSchemaRejection(t, err, "nvidiaDriverCapabilities")
 				return
 			}
 			require.NoError(t, err)
@@ -367,11 +368,11 @@ func TestComponentHostNetworkTemplateRendered(t *testing.T) {
 	}
 
 	testCases := []struct {
-		description            string
-		setValue               string
-		setStringValue         string
-		expectedHostNetwork    bool
-		expectedErrorSubstring string
+		description           string
+		setValue              string
+		setStringValue        string
+		expectedHostNetwork   bool
+		expectSchemaRejection bool
 	}{
 		{
 			description: "default",
@@ -382,9 +383,9 @@ func TestComponentHostNetworkTemplateRendered(t *testing.T) {
 			expectedHostNetwork: true,
 		},
 		{
-			description:            "string is rejected",
-			setStringValue:         "false",
-			expectedErrorSubstring: "got string, want boolean",
+			description:           "string is rejected",
+			setStringValue:        "false",
+			expectSchemaRejection: true,
 		},
 	}
 
@@ -409,8 +410,8 @@ func TestComponentHostNetworkTemplateRendered(t *testing.T) {
 				}
 
 				output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{templateFile})
-				if tc.expectedErrorSubstring != "" {
-					require.ErrorContains(t, err, "at '/"+component+"/enableHostNetwork': "+tc.expectedErrorSubstring)
+				if tc.expectSchemaRejection {
+					requireSchemaRejection(t, err, hostNetworkKey)
 					return
 				}
 				require.NoError(t, err)
@@ -428,10 +429,10 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		description            string
-		options                map[string]string
-		expectedEnvByName      map[string]string
-		expectedErrorSubstring string
+		description           string
+		options               map[string]string
+		expectedEnvByName     map[string]string
+		expectSchemaRejection bool
 	}{
 		{
 			description:       "default",
@@ -454,7 +455,7 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 			options: map[string]string{
 				"gfd.sleepInterval": "60",
 			},
-			expectedErrorSubstring: "at '/gfd/sleepInterval': got number, want null or string",
+			expectSchemaRejection: true,
 		},
 	}
 
@@ -471,8 +472,8 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 			}
 
 			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-gfd.yml"})
-			if tc.expectedErrorSubstring != "" {
-				require.ErrorContains(t, err, tc.expectedErrorSubstring)
+			if tc.expectSchemaRejection {
+				requireSchemaRejection(t, err, "gfd.sleepInterval")
 				return
 			}
 			require.NoError(t, err)
@@ -493,6 +494,16 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 }
 
 // prt returns a reference to whatever type is passed into it
+// Helm 3.18 switched JSON schema validators, so the error names a value as
+// "/gfd/sleepInterval" from then on and as "gfd.sleepInterval" before it.
+func requireSchemaRejection(t *testing.T, err error, valuePath string) {
+	t.Helper()
+	require.ErrorContains(t, err, "values don't meet the specifications of the schema")
+	jsonPointer := "/" + strings.ReplaceAll(valuePath, ".", "/")
+	require.Truef(t, strings.Contains(err.Error(), jsonPointer) || strings.Contains(err.Error(), valuePath+":"),
+		"schema error does not name %q: %v", valuePath, err)
+}
+
 func ptr[T any](x T) *T {
 	return &x
 }
