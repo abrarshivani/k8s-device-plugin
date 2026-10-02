@@ -449,8 +449,8 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 			},
 		},
 		{
-			// GFD_SLEEP_INTERVAL is parsed with time.ParseDuration, which requires a unit.
-			description: "sleepInterval without a unit is rejected",
+			// GFD parses GFD_SLEEP_INTERVAL with time.ParseDuration, so a number is never a valid interval.
+			description: "numeric sleepInterval is rejected",
 			options: map[string]string{
 				"gfd.sleepInterval": "60",
 			},
