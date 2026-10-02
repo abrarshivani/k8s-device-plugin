@@ -51,7 +51,8 @@
 {{- if not (kindIs "invalid" (index $.Values $movedValueName)) }}
 {{- $error := "" }}
 {{- $error = printf "%s\nValue '%s' has moved to 'gfd.%s'." $error $movedValueName $movedValueName }}
-{{- $error = printf "%s\nThe top-level '%s' is no longer read by the gpu-feature-discovery DaemonSet." $error $movedValueName }}
+{{- $error = printf "%s\nTo upgrade a release that set it, add '--set %s=null' and use --reset-then-reuse-values instead of --reuse-values." $error $movedValueName }}
+{{- $error = printf "%s\n--reuse-values cannot remove a value stored in the release." $error }}
 {{- fail $error }}
 {{- end }}
 {{- end }}
