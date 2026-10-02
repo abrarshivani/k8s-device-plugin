@@ -493,7 +493,43 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 	}
 }
 
-// prt returns a reference to whatever type is passed into it
+func TestDevicePluginDaemonsetAffinityTemplateRendered(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description      string
+		options          map[string]string
+		expectedAffinity bool
+	}{
+		{
+			description:      "default",
+			expectedAffinity: true,
+		},
+		{
+			description:      "null clears the default",
+			options:          map[string]string{"affinity": "null"},
+			expectedAffinity: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			options := &helm.Options{
+				SetValues:      tc.options,
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			output := helm.RenderTemplate(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+
+			var daemonset appsv1.DaemonSet
+			helm.UnmarshalK8SYaml(t, output, &daemonset)
+			require.Equal(t, tc.expectedAffinity, daemonset.Spec.Template.Spec.Affinity != nil)
+		})
+	}
+}
+
 // Helm 3.18 switched JSON schema validators, so the error names a value as
 // "/gfd/sleepInterval" from then on and as "gfd.sleepInterval" before it.
 func requireSchemaRejection(t *testing.T, err error, valuePath string) {
