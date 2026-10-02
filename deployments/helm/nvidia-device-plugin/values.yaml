@@ -124,7 +124,7 @@ gfd:
   nameOverride: gpu-feature-discovery
   namespaceOverride: ""
   noTimestamp: null # @schema type:[boolean, null]
-  sleepInterval: null # @schema type:[string, null]
+  sleepInterval: null # @schema type:[string, null];pattern:^(infinite|[-+]?(0|(([0-9]+(\.[0-9]*)?|\.[0-9]+)(ns|us|µs|μs|ms|s|m|h))+))$
   securityContext:
     # privileged access is required for the gpu-feature-discovery to access the
     # vgpu info on a host.

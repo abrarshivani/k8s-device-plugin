@@ -431,6 +431,7 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 	testCases := []struct {
 		description           string
 		options               map[string]string
+		stringOptions         map[string]string
 		expectedEnvByName     map[string]string
 		expectSchemaRejection bool
 	}{
@@ -457,6 +458,22 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 			},
 			expectSchemaRejection: true,
 		},
+		{
+			description: "infinite sleepInterval",
+			options: map[string]string{
+				"gfd.sleepInterval": "infinite",
+			},
+			expectedEnvByName: map[string]string{
+				"GFD_SLEEP_INTERVAL": "infinite",
+			},
+		},
+		{
+			description: "sleepInterval string without a unit is rejected",
+			stringOptions: map[string]string{
+				"gfd.sleepInterval": "60",
+			},
+			expectSchemaRejection: true,
+		},
 	}
 
 	for _, tc := range testCases {
@@ -467,6 +484,7 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 			maps.Copy(setValues, tc.options)
 			options := &helm.Options{
 				SetValues:      setValues,
+				SetStrValues:   tc.stringOptions,
 				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
 				Logger:         logger.Discard,
 			}
