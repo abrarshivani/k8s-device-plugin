@@ -356,6 +356,142 @@ func TestDevicePluginDaemonsetImageTag(t *testing.T) {
 	}
 }
 
+func TestComponentHostNetworkTemplateRendered(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	templateFileByComponent := map[string]string{
+		"devicePlugin": "templates/daemonset-device-plugin.yml",
+		"gfd":          "templates/daemonset-gfd.yml",
+		"mps":          "templates/daemonset-mps-control-daemon.yml",
+	}
+
+	testCases := []struct {
+		description            string
+		setValue               string
+		setStringValue         string
+		expectedHostNetwork    bool
+		expectedErrorSubstring string
+	}{
+		{
+			description: "default",
+		},
+		{
+			description:         "true",
+			setValue:            "true",
+			expectedHostNetwork: true,
+		},
+		{
+			description:            "string is rejected",
+			setStringValue:         "false",
+			expectedErrorSubstring: "got string, want boolean",
+		},
+	}
+
+	for component, templateFile := range templateFileByComponent {
+		for _, tc := range testCases {
+			t.Run(component+"/"+tc.description, func(t *testing.T) {
+				hostNetworkKey := component + ".enableHostNetwork"
+				options := &helm.Options{
+					SetValues: map[string]string{
+						"config.name": "external-config",
+						"gfd.enabled": "true",
+					},
+					SetStrValues:   map[string]string{},
+					KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+					Logger:         logger.Discard,
+				}
+				if tc.setValue != "" {
+					options.SetValues[hostNetworkKey] = tc.setValue
+				}
+				if tc.setStringValue != "" {
+					options.SetStrValues[hostNetworkKey] = tc.setStringValue
+				}
+
+				output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{templateFile})
+				if tc.expectedErrorSubstring != "" {
+					require.ErrorContains(t, err, "at '/"+component+"/enableHostNetwork': "+tc.expectedErrorSubstring)
+					return
+				}
+				require.NoError(t, err)
+
+				var daemonset appsv1.DaemonSet
+				helm.UnmarshalK8SYaml(t, output, &daemonset)
+				require.Equal(t, tc.expectedHostNetwork, daemonset.Spec.Template.Spec.HostNetwork)
+			})
+		}
+	}
+}
+
+func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description            string
+		options                map[string]string
+		expectedEnvByName      map[string]string
+		expectedErrorSubstring string
+	}{
+		{
+			description:       "default",
+			expectedEnvByName: map[string]string{},
+		},
+		{
+			description: "gfd values",
+			options: map[string]string{
+				"gfd.noTimestamp":   "true",
+				"gfd.sleepInterval": "30s",
+			},
+			expectedEnvByName: map[string]string{
+				"GFD_NO_TIMESTAMP":   "true",
+				"GFD_SLEEP_INTERVAL": "30s",
+			},
+		},
+		{
+			// GFD_SLEEP_INTERVAL is parsed with time.ParseDuration, which requires a unit.
+			description: "sleepInterval without a unit is rejected",
+			options: map[string]string{
+				"gfd.sleepInterval": "60",
+			},
+			expectedErrorSubstring: "at '/gfd/sleepInterval': got number, want null or string",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			setValues := map[string]string{
+				"gfd.enabled": "true",
+			}
+			maps.Copy(setValues, tc.options)
+			options := &helm.Options{
+				SetValues:      setValues,
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-gfd.yml"})
+			if tc.expectedErrorSubstring != "" {
+				require.ErrorContains(t, err, tc.expectedErrorSubstring)
+				return
+			}
+			require.NoError(t, err)
+
+			var daemonset appsv1.DaemonSet
+			helm.UnmarshalK8SYaml(t, output, &daemonset)
+			require.Len(t, daemonset.Spec.Template.Spec.Containers, 1)
+
+			envByName := map[string]string{}
+			for _, env := range daemonset.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "GFD_NO_TIMESTAMP" || env.Name == "GFD_SLEEP_INTERVAL" {
+					envByName[env.Name] = env.Value
+				}
+			}
+			require.Equal(t, tc.expectedEnvByName, envByName)
+		})
+	}
+}
+
 // prt returns a reference to whatever type is passed into it
 func ptr[T any](x T) *T {
 	return &x

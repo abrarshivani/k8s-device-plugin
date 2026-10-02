@@ -117,14 +117,14 @@ devicePlugin:
   # enableHostNetwork when set to true runs the pod with hostNetwork: true.
   # This can be useful in non-overlay network environments (e.g., AWS, Azure, GCP)
   # to avoid unnecessary IP allocation for daemon pods.
-  # enableHostNetwork: false
+  enableHostNetwork: false
 
 gfd:
   enabled: false
   nameOverride: gpu-feature-discovery
   namespaceOverride: ""
   noTimestamp: null # @schema type:[boolean, null]
-  sleepInterval: null # @schema type:[string, integer, null]
+  sleepInterval: null # @schema type:[string, null]
   securityContext:
     # privileged access is required for the gpu-feature-discovery to access the
     # vgpu info on a host.
@@ -134,7 +134,7 @@ gfd:
   # enableHostNetwork when set to true runs the pod with hostNetwork: true.
   # This can be useful in non-overlay network environments (e.g., AWS, Azure, GCP)
   # to avoid unnecessary IP allocation for daemon pods.
-  # enableHostNetwork: false
+  enableHostNetwork: false
 
 # Helm dependency
 nfd:
@@ -181,7 +181,7 @@ mps:
   # enableHostNetwork when set to true runs the pod with hostNetwork: true.
   # This can be useful in non-overlay network environments (e.g., AWS, Azure, GCP)
   # to avoid unnecessary IP allocation for daemon pods.
-  # enableHostNetwork: false
+  enableHostNetwork: false
 
 # configManager configures the config-manager init and sidecar containers that
 # are added to each component when a ConfigMap is used. These containers do

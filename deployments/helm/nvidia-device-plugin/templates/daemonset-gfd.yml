@@ -173,13 +173,13 @@ spec:
           - name: FAIL_ON_INIT_ERROR
             value: {{ .Values.failOnInitError | quote }}
         {{- end }}
-        {{- if typeIs "bool" .Values.noTimestamp }}
+        {{- if typeIs "bool" .Values.gfd.noTimestamp }}
           - name: GFD_NO_TIMESTAMP
-            value: {{ .Values.noTimestamp | quote }}
+            value: {{ .Values.gfd.noTimestamp | quote }}
         {{- end }}
-        {{- if or (typeIs "string" .Values.sleepInterval) (typeIs "int" .Values.sleepInterval) }}
+        {{- if typeIs "string" .Values.gfd.sleepInterval }}
           - name: GFD_SLEEP_INTERVAL
-            value: {{ .Values.sleepInterval | quote }}
+            value: {{ .Values.gfd.sleepInterval | quote }}
         {{- end }}
         {{- if $options.hasConfigMap }}
           - name: CONFIG_FILE
