@@ -137,7 +137,7 @@ gfd:
   enableHostNetwork: false
 
 # Helm dependency
-nfd:
+nfd: # @schema hidden
   nameOverride: node-feature-discovery
   master:
     serviceAccount:
