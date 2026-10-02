@@ -316,6 +316,46 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 	}
 }
 
+func TestDevicePluginDaemonsetImageTag(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description   string
+		imageTag      string
+		expectedImage string
+	}{
+		{
+			description:   "string tag",
+			imageTag:      "v0.20.1",
+			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:v0.20.1",
+		},
+		{
+			// --set parses an all-digit tag as a number.
+			description:   "numeric tag",
+			imageTag:      "123",
+			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:123",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			options := &helm.Options{
+				SetValues:      map[string]string{"image.tag": tc.imageTag},
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			output := helm.RenderTemplate(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+
+			var daemonset appsv1.DaemonSet
+			helm.UnmarshalK8SYaml(t, output, &daemonset)
+			require.Len(t, daemonset.Spec.Template.Spec.Containers, 1)
+			require.Equal(t, tc.expectedImage, daemonset.Spec.Template.Spec.Containers[0].Image)
+		})
+	}
+}
+
 // prt returns a reference to whatever type is passed into it
 func ptr[T any](x T) *T {
 	return &x
