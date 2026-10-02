@@ -46,3 +46,12 @@
 {{- $error = printf "%s\nSee: https://helm.sh/docs/helm/helm_install/#options" $error }}
 {{- fail $error }}
 {{- end }}
+
+{{- range $movedValueName := list "noTimestamp" "sleepInterval" }}
+{{- if not (kindIs "invalid" (index $.Values $movedValueName)) }}
+{{- $error := "" }}
+{{- $error = printf "%s\nValue '%s' has moved to 'gfd.%s'." $error $movedValueName $movedValueName }}
+{{- $error = printf "%s\nThe top-level '%s' is no longer read by the gpu-feature-discovery DaemonSet." $error $movedValueName }}
+{{- fail $error }}
+{{- end }}
+{{- end }}

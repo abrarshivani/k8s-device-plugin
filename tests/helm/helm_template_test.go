@@ -493,6 +493,35 @@ func TestGFDDaemonsetEnvTemplateRendered(t *testing.T) {
 	}
 }
 
+func TestMovedGFDValuesRejected(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		movedValueName string
+		value          string
+	}{
+		{movedValueName: "noTimestamp", value: "true"},
+		{movedValueName: "sleepInterval", value: "30s"},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.movedValueName, func(t *testing.T) {
+			options := &helm.Options{
+				SetValues: map[string]string{
+					"gfd.enabled":     "true",
+					tc.movedValueName: tc.value,
+				},
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			_, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-gfd.yml"})
+			require.ErrorContains(t, err, fmt.Sprintf("Value '%s' has moved to 'gfd.%s'", tc.movedValueName, tc.movedValueName))
+		})
+	}
+}
+
 func TestDevicePluginDaemonsetAffinityTemplateRendered(t *testing.T) {
 	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
 	require.NoError(t, err)
