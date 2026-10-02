@@ -22,17 +22,9 @@ on:
         type: string
 
 jobs:
-  test-helm-version:
-    name: Test (Helm ${{ matrix.helm_version }})
+  test:
+    name: Test
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        # 3.14.4 is the version the release workflows package the chart with. The newer
-        # version is pinned because setup-helm silently installs v3.18.4 if resolving
-        # "latest" fails.
-        helm_version:
-          - 3.14.4
-          - 4.3.0
     steps:
     - name: Checkout code
       uses: actions/checkout@v7
@@ -43,23 +35,10 @@ jobs:
     - name: Install Helm
       uses: azure/setup-helm@v5.0.1
       with:
-        version: ${{ matrix.helm_version }}
+        # Keep in step with release.yaml and publish-helm.yaml, which package the chart.
+        version: 3.14.4
     - name: Check values.schema.json is up to date
       run: make check-helm-values-schema
     - name: Lint chart
       run: make lint-helm
     - run: make test-helm
-
-  # Branch protection requires a check named "Test", which a matrix job never reports.
-  test:
-    name: Test
-    needs:
-    - test-helm-version
-    # A skipped job satisfies a required check, so run even when a Helm version failed.
-    if: always()
-    runs-on: ubuntu-latest
-    steps:
-    - name: Check that every Helm version passed
-      env:
-        HELM_VERSION_TESTS_RESULT: ${{ needs.test-helm-version.result }}
-      run: test "$HELM_VERSION_TESTS_RESULT" = success
