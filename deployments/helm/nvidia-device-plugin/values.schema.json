@@ -276,6 +276,12 @@
         "type": "string"
       }
     },
+    "nvidiaDevRoot": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
     "nvidiaDriverCapabilities": {
       "type": [
         "string",

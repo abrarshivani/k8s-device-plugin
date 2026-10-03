@@ -319,6 +319,61 @@ func TestDevicePluginDaemonsetNvidiaDriverCapabilities(t *testing.T) {
 	}
 }
 
+func TestDevicePluginDaemonsetNvidiaDevRoot(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description           string
+		options               map[string]string
+		expectedDevRootEnv    *v1.EnvVar
+		expectSchemaRejection bool
+	}{
+		{
+			description: "default",
+		},
+		{
+			description:        "string",
+			options:            map[string]string{"nvidiaDevRoot": "/dev-root"},
+			expectedDevRootEnv: &v1.EnvVar{Name: "NVIDIA_DEV_ROOT", Value: "/dev-root"},
+		},
+		{
+			description:           "number is rejected",
+			options:               map[string]string{"nvidiaDevRoot": "1"},
+			expectSchemaRejection: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			options := &helm.Options{
+				SetValues:      tc.options,
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+			if tc.expectSchemaRejection {
+				requireSchemaRejection(t, err, "nvidiaDevRoot")
+				return
+			}
+			require.NoError(t, err)
+
+			var daemonset appsv1.DaemonSet
+			helm.UnmarshalK8SYaml(t, output, &daemonset)
+			require.Len(t, daemonset.Spec.Template.Spec.Containers, 1)
+
+			var devRootEnv *v1.EnvVar
+			for _, env := range daemonset.Spec.Template.Spec.Containers[0].Env {
+				if env.Name == "NVIDIA_DEV_ROOT" {
+					devRootEnv = &env
+				}
+			}
+			require.Equal(t, tc.expectedDevRootEnv, devRootEnv)
+		})
+	}
+}
+
 func TestDevicePluginDaemonsetImageTag(t *testing.T) {
 	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
 	require.NoError(t, err)
