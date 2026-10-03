@@ -578,6 +578,7 @@ func TestMovedGFDValuesRejected(t *testing.T) {
 				"Value 'noTimestamp' has moved to 'gfd.noTimestamp'",
 				"Value 'sleepInterval' has moved to 'gfd.sleepInterval'",
 				"add '--set noTimestamp=null --set sleepInterval=null' and use --reset-then-reuse-values",
+				"Helm releases before 3.14 lack --reset-then-reuse-values: upgrade without --reuse-values and pass all values again",
 			},
 		},
 	}
