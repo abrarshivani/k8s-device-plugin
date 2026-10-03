@@ -751,6 +751,7 @@ func TestImagePullSecretsTemplateRendered(t *testing.T) {
 	testCases := []struct {
 		description              string
 		options                  map[string]string
+		jsonOptions              map[string]string
 		rejectedValuePath        string
 		expectedImagePullSecrets []v1.LocalObjectReference
 	}{
@@ -760,14 +761,20 @@ func TestImagePullSecretsTemplateRendered(t *testing.T) {
 			expectedImagePullSecrets: []v1.LocalObjectReference{{Name: "registry-secret"}},
 		},
 		{
+			// Kubernetes accepts entries without a name and the kubelet skips them.
+			description:              "empty entry",
+			jsonOptions:              map[string]string{"imagePullSecrets": "[{}]"},
+			expectedImagePullSecrets: []v1.LocalObjectReference{{}},
+		},
+		{
 			description:       "bare string is rejected",
 			options:           map[string]string{"imagePullSecrets[0]": "registry-secret"},
 			rejectedValuePath: "imagePullSecrets.0",
 		},
 		{
-			description:       "entry without a name is rejected",
-			options:           map[string]string{"imagePullSecrets[0].secret": "registry-secret"},
-			rejectedValuePath: "imagePullSecrets.0",
+			description:       "numeric name is rejected",
+			options:           map[string]string{"imagePullSecrets[0].name": "123"},
+			rejectedValuePath: "imagePullSecrets.0.name",
 		},
 	}
 
@@ -775,6 +782,7 @@ func TestImagePullSecretsTemplateRendered(t *testing.T) {
 		t.Run(tc.description, func(t *testing.T) {
 			options := &helm.Options{
 				SetValues:      tc.options,
+				SetJsonValues:  tc.jsonOptions,
 				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
 				Logger:         logger.Discard,
 			}
