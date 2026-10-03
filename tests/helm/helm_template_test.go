@@ -798,9 +798,10 @@ func TestDevicePluginDaemonsetAffinityTemplateRendered(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		description      string
-		options          map[string]string
-		expectedAffinity bool
+		description           string
+		options               map[string]string
+		expectedAffinity      bool
+		expectSchemaRejection bool
 	}{
 		{
 			description:      "default",
@@ -810,6 +811,17 @@ func TestDevicePluginDaemonsetAffinityTemplateRendered(t *testing.T) {
 			description:      "null clears the default",
 			options:          map[string]string{"affinity": "null"},
 			expectedAffinity: false,
+		},
+		{
+			// Releases installed with --set affinity= store an empty string.
+			description:      "empty string clears the default",
+			options:          map[string]string{"affinity": ""},
+			expectedAffinity: false,
+		},
+		{
+			description:           "other string is rejected",
+			options:               map[string]string{"affinity": "gpu-nodes"},
+			expectSchemaRejection: true,
 		},
 	}
 
@@ -821,7 +833,12 @@ func TestDevicePluginDaemonsetAffinityTemplateRendered(t *testing.T) {
 				Logger:         logger.Discard,
 			}
 
-			output := helm.RenderTemplate(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+			if tc.expectSchemaRejection {
+				requireSchemaRejection(t, err, "affinity")
+				return
+			}
+			require.NoError(t, err)
 
 			var daemonset appsv1.DaemonSet
 			helm.UnmarshalK8SYaml(t, output, &daemonset)

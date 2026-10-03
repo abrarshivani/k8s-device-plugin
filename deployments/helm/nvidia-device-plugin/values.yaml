@@ -73,7 +73,7 @@ securityContext: {}
 # mps.resources override it per component; an empty override inherits this value.
 resources: {}
 nodeSelector: {} # @schema additionalProperties: {type: string}
-affinity:
+affinity: # @schema anyOf: [{type: object}, {const: ""}]
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
       nodeSelectorTerms:

@@ -3,7 +3,14 @@
   "type": "object",
   "properties": {
     "affinity": {
-      "type": "object",
+      "anyOf": [
+        {
+          "type": "object"
+        },
+        {
+          "const": ""
+        }
+      ],
       "properties": {
         "nodeAffinity": {
           "type": "object",
