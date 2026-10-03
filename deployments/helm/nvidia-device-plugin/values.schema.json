@@ -92,7 +92,10 @@
           }
         },
         "map": {
-          "type": "object"
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
         },
         "name": {
           "type": "string"
@@ -257,7 +260,10 @@
       "type": "string"
     },
     "nodeSelector": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "nvidiaDriverCapabilities": {
       "type": [
@@ -272,7 +278,10 @@
       ]
     },
     "podAnnotations": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "podSecurityContext": {
       "type": "object"
@@ -293,7 +302,10 @@
       "type": "object"
     },
     "selectorLabelsOverride": {
-      "type": "object"
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "tolerations": {
       "type": "array",

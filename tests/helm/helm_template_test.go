@@ -603,6 +603,69 @@ func TestMovedGFDValuesRejected(t *testing.T) {
 	}
 }
 
+func TestStringMapValuesTemplateRendered(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description         string
+		options             map[string]string
+		stringOptions       map[string]string
+		jsonOptions         map[string]string
+		rejectedValuePath   string
+		expectedAnnotations map[string]string
+	}{
+		{
+			description:       "config.map entry that is not a YAML string is rejected",
+			jsonOptions:       map[string]string{"config.map": `{"default": {"version": "v1"}}`},
+			rejectedValuePath: "config.map.default",
+		},
+		{
+			description:       "numeric pod annotation is rejected",
+			options:           map[string]string{"podAnnotations.example": "1"},
+			rejectedValuePath: "podAnnotations.example",
+		},
+		{
+			description:       "boolean node selector is rejected",
+			options:           map[string]string{"nodeSelector.example": "true"},
+			rejectedValuePath: "nodeSelector.example",
+		},
+		{
+			description:       "numeric selector label override is rejected",
+			options:           map[string]string{"selectorLabelsOverride.example": "1"},
+			rejectedValuePath: "selectorLabelsOverride.example",
+		},
+		{
+			description:         "quoted pod annotation",
+			stringOptions:       map[string]string{"podAnnotations.example": "1"},
+			expectedAnnotations: map[string]string{"example": "1"},
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			options := &helm.Options{
+				SetValues:      tc.options,
+				SetStrValues:   tc.stringOptions,
+				SetJsonValues:  tc.jsonOptions,
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+			if tc.rejectedValuePath != "" {
+				requireSchemaRejection(t, err, tc.rejectedValuePath)
+				return
+			}
+			require.NoError(t, err)
+
+			var daemonset appsv1.DaemonSet
+			helm.UnmarshalK8SYaml(t, output, &daemonset)
+			require.Equal(t, tc.expectedAnnotations, daemonset.Spec.Template.Annotations)
+		})
+	}
+}
+
 func TestDevicePluginDaemonsetAffinityTemplateRendered(t *testing.T) {
 	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
 	require.NoError(t, err)

@@ -21,7 +21,7 @@ config:
   # ConfigMap name if pulling from an external ConfigMap
   name: ""
   # Set of named configs to build an integrated ConfigMap from
-  map: {}
+  map: {} # @schema additionalProperties: {type: string}
   # Default config name within the ConfigMap
   default: ""
   # List of fallback strategies to attempt if no config is selected and no default is provided
@@ -42,7 +42,7 @@ nvidiaDriverCapabilities: "compute,utility" # @schema type:[string, null]
 nameOverride: ""
 fullnameOverride: ""
 namespaceOverride: ""
-selectorLabelsOverride: {}
+selectorLabelsOverride: {} # @schema additionalProperties: {type: string}
 componentSelectorLabels:
   # enabled controls whether DaemonSet selectors include app.kubernetes.io/component
   # to avoid overlap between device-plugin, gpu-feature-discovery, and mps-control-daemon.
@@ -63,7 +63,7 @@ image:
 updateStrategy:
   type: RollingUpdate
 
-podAnnotations: {}
+podAnnotations: {} # @schema additionalProperties: {type: string}
 podSecurityContext: {}
 securityContext: {}
 
@@ -71,7 +71,7 @@ securityContext: {}
 # the MPS mount init container. devicePlugin.resources, gfd.resources, and
 # mps.resources override it per component; an empty override inherits this value.
 resources: {}
-nodeSelector: {}
+nodeSelector: {} # @schema additionalProperties: {type: string}
 affinity:
   nodeAffinity:
     requiredDuringSchedulingIgnoredDuringExecution:
