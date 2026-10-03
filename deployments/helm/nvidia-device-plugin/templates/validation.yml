@@ -47,12 +47,18 @@
 {{- fail $error }}
 {{- end }}
 
+{{- $movedValueMessages := list }}
+{{- $clearMovedValueArgs := list }}
 {{- range $movedValueName := list "noTimestamp" "sleepInterval" }}
 {{- if not (kindIs "invalid" (index $.Values $movedValueName)) }}
+{{- $movedValueMessages = append $movedValueMessages (printf "Value '%s' has moved to 'gfd.%s'." $movedValueName $movedValueName) }}
+{{- $clearMovedValueArgs = append $clearMovedValueArgs (printf "--set %s=null" $movedValueName) }}
+{{- end }}
+{{- end }}
+{{- if $movedValueMessages }}
 {{- $error := "" }}
-{{- $error = printf "%s\nValue '%s' has moved to 'gfd.%s'." $error $movedValueName $movedValueName }}
-{{- $error = printf "%s\nTo upgrade a release that set it, add '--set %s=null' and use --reset-then-reuse-values instead of --reuse-values." $error $movedValueName }}
+{{- $error = printf "%s\n%s" $error (join "\n" $movedValueMessages) }}
+{{- $error = printf "%s\nTo upgrade a release that set these values, add '%s' and use --reset-then-reuse-values instead of --reuse-values." $error (join " " $clearMovedValueArgs) }}
 {{- $error = printf "%s\n--reuse-values cannot remove a value stored in the release." $error }}
 {{- fail $error }}
-{{- end }}
 {{- end }}

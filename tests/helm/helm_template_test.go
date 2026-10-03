@@ -516,26 +516,56 @@ func TestMovedGFDValuesRejected(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		movedValueName string
-		value          string
+		description             string
+		options                 map[string]string
+		expectedErrorSubstrings []string
 	}{
-		{movedValueName: "noTimestamp", value: "true"},
-		{movedValueName: "sleepInterval", value: "30s"},
+		{
+			description: "noTimestamp",
+			options:     map[string]string{"noTimestamp": "true"},
+			expectedErrorSubstrings: []string{
+				"Value 'noTimestamp' has moved to 'gfd.noTimestamp'",
+				"add '--set noTimestamp=null' and use --reset-then-reuse-values",
+			},
+		},
+		{
+			description: "sleepInterval",
+			options:     map[string]string{"sleepInterval": "30s"},
+			expectedErrorSubstrings: []string{
+				"Value 'sleepInterval' has moved to 'gfd.sleepInterval'",
+				"add '--set sleepInterval=null' and use --reset-then-reuse-values",
+			},
+		},
+		{
+			description: "both in one error",
+			options: map[string]string{
+				"noTimestamp":   "true",
+				"sleepInterval": "30s",
+			},
+			expectedErrorSubstrings: []string{
+				"Value 'noTimestamp' has moved to 'gfd.noTimestamp'",
+				"Value 'sleepInterval' has moved to 'gfd.sleepInterval'",
+				"add '--set noTimestamp=null --set sleepInterval=null' and use --reset-then-reuse-values",
+			},
+		},
 	}
 
 	for _, tc := range testCases {
-		t.Run(tc.movedValueName, func(t *testing.T) {
+		t.Run(tc.description, func(t *testing.T) {
+			setValues := map[string]string{
+				"gfd.enabled": "true",
+			}
+			maps.Copy(setValues, tc.options)
 			options := &helm.Options{
-				SetValues: map[string]string{
-					"gfd.enabled":     "true",
-					tc.movedValueName: tc.value,
-				},
+				SetValues:      setValues,
 				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
 				Logger:         logger.Discard,
 			}
 
 			_, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-gfd.yml"})
-			require.ErrorContains(t, err, fmt.Sprintf("Value '%s' has moved to 'gfd.%s'", tc.movedValueName, tc.movedValueName))
+			for _, expectedErrorSubstring := range tc.expectedErrorSubstrings {
+				require.ErrorContains(t, err, expectedErrorSubstring)
+			}
 		})
 	}
 }
