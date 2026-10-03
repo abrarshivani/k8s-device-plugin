@@ -19,6 +19,7 @@ package helm_test
 import (
 	"fmt"
 	"maps"
+	"os"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -26,6 +27,7 @@ import (
 	"github.com/stretchr/testify/require"
 	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/yaml"
 
 	"github.com/gruntwork-io/terratest/modules/helm"
 	"github.com/gruntwork-io/terratest/modules/logger"
@@ -321,28 +323,58 @@ func TestDevicePluginDaemonsetImageTag(t *testing.T) {
 	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
 	require.NoError(t, err)
 
+	chartYAML, err := os.ReadFile(filepath.Join(helmChartPath, "Chart.yaml"))
+	require.NoError(t, err)
+	var chartMetadata struct {
+		AppVersion string `json:"appVersion"`
+	}
+	require.NoError(t, yaml.Unmarshal(chartYAML, &chartMetadata))
+	defaultImage := "nvcr.io/nvidia/k8s-device-plugin:v" + chartMetadata.AppVersion
+
 	testCases := []struct {
 		description   string
-		imageTag      string
+		options       map[string]string
+		jsonOptions   map[string]string
 		expectedImage string
 	}{
 		{
+			description:   "default",
+			expectedImage: defaultImage,
+		},
+		{
+			description:   "empty tag",
+			options:       map[string]string{"image.tag": ""},
+			expectedImage: defaultImage,
+		},
+		{
 			description:   "string tag",
-			imageTag:      "v0.20.1",
-			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:v0.20.1",
+			options:       map[string]string{"image.tag": "v0.17.0"},
+			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:v0.17.0",
 		},
 		{
 			// --set parses an all-digit tag as a number.
 			description:   "numeric tag",
-			imageTag:      "123",
+			options:       map[string]string{"image.tag": "123"},
 			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:123",
+		},
+		{
+			description:   "zero tag",
+			options:       map[string]string{"image.tag": "0"},
+			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:0",
+		},
+		{
+			// --set-json and values files load numbers as float64.
+			description:   "large numeric tag from JSON",
+			jsonOptions:   map[string]string{"image.tag": "20260101"},
+			expectedImage: "nvcr.io/nvidia/k8s-device-plugin:20260101",
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.description, func(t *testing.T) {
 			options := &helm.Options{
-				SetValues:      map[string]string{"image.tag": tc.imageTag},
+				SetValues:      tc.options,
+				SetJsonValues:  tc.jsonOptions,
 				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
 				Logger:         logger.Discard,
 			}
