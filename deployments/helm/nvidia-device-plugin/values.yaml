@@ -53,7 +53,7 @@ componentSelectorLabels:
 
 allowDefaultNamespace: false
 
-imagePullSecrets: []
+imagePullSecrets: [] # @schema item: object; itemProperties: {name: {type: string}}; itemRequired: [name]
 image:
   repository: nvcr.io/nvidia/k8s-device-plugin
   pullPolicy: IfNotPresent

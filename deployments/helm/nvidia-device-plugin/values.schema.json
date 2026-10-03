@@ -222,7 +222,18 @@
       }
     },
     "imagePullSecrets": {
-      "type": "array"
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          }
+        }
+      }
     },
     "migStrategy": {
       "type": [

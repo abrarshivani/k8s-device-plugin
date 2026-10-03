@@ -608,17 +608,31 @@ func TestStringMapValuesTemplateRendered(t *testing.T) {
 	require.NoError(t, err)
 
 	testCases := []struct {
-		description         string
-		options             map[string]string
-		stringOptions       map[string]string
-		jsonOptions         map[string]string
-		rejectedValuePath   string
-		expectedAnnotations map[string]string
+		description       string
+		options           map[string]string
+		stringOptions     map[string]string
+		jsonOptions       map[string]string
+		rejectedValuePath string
+		verifyDaemonSet   func(t *testing.T, daemonset appsv1.DaemonSet)
 	}{
+		{
+			description: "config.map entry as a YAML string",
+			jsonOptions: map[string]string{"config.map": `{"default": "version: v1"}`},
+			verifyDaemonSet: func(t *testing.T, daemonset appsv1.DaemonSet) {
+				require.Contains(t, daemonset.Spec.Template.Annotations, "checksum/config")
+			},
+		},
 		{
 			description:       "config.map entry that is not a YAML string is rejected",
 			jsonOptions:       map[string]string{"config.map": `{"default": {"version": "v1"}}`},
 			rejectedValuePath: "config.map.default",
+		},
+		{
+			description:   "quoted pod annotation",
+			stringOptions: map[string]string{"podAnnotations.example": "1"},
+			verifyDaemonSet: func(t *testing.T, daemonset appsv1.DaemonSet) {
+				require.Equal(t, map[string]string{"example": "1"}, daemonset.Spec.Template.Annotations)
+			},
 		},
 		{
 			description:       "numeric pod annotation is rejected",
@@ -626,19 +640,28 @@ func TestStringMapValuesTemplateRendered(t *testing.T) {
 			rejectedValuePath: "podAnnotations.example",
 		},
 		{
+			description:   "quoted node selector",
+			stringOptions: map[string]string{"nodeSelector.example": "true"},
+			verifyDaemonSet: func(t *testing.T, daemonset appsv1.DaemonSet) {
+				require.Equal(t, map[string]string{"example": "true"}, daemonset.Spec.Template.Spec.NodeSelector)
+			},
+		},
+		{
 			description:       "boolean node selector is rejected",
 			options:           map[string]string{"nodeSelector.example": "true"},
 			rejectedValuePath: "nodeSelector.example",
 		},
 		{
+			description:   "quoted selector label override",
+			stringOptions: map[string]string{"selectorLabelsOverride.example": "1"},
+			verifyDaemonSet: func(t *testing.T, daemonset appsv1.DaemonSet) {
+				require.Equal(t, map[string]string{"example": "1"}, daemonset.Spec.Selector.MatchLabels)
+			},
+		},
+		{
 			description:       "numeric selector label override is rejected",
 			options:           map[string]string{"selectorLabelsOverride.example": "1"},
 			rejectedValuePath: "selectorLabelsOverride.example",
-		},
-		{
-			description:         "quoted pod annotation",
-			stringOptions:       map[string]string{"podAnnotations.example": "1"},
-			expectedAnnotations: map[string]string{"example": "1"},
 		},
 	}
 
@@ -661,7 +684,56 @@ func TestStringMapValuesTemplateRendered(t *testing.T) {
 
 			var daemonset appsv1.DaemonSet
 			helm.UnmarshalK8SYaml(t, output, &daemonset)
-			require.Equal(t, tc.expectedAnnotations, daemonset.Spec.Template.Annotations)
+			tc.verifyDaemonSet(t, daemonset)
+		})
+	}
+}
+
+func TestImagePullSecretsTemplateRendered(t *testing.T) {
+	helmChartPath, err := filepath.Abs("../../deployments/helm/nvidia-device-plugin")
+	require.NoError(t, err)
+
+	testCases := []struct {
+		description              string
+		options                  map[string]string
+		rejectedValuePath        string
+		expectedImagePullSecrets []v1.LocalObjectReference
+	}{
+		{
+			description:              "secret name",
+			options:                  map[string]string{"imagePullSecrets[0].name": "registry-secret"},
+			expectedImagePullSecrets: []v1.LocalObjectReference{{Name: "registry-secret"}},
+		},
+		{
+			description:       "bare string is rejected",
+			options:           map[string]string{"imagePullSecrets[0]": "registry-secret"},
+			rejectedValuePath: "imagePullSecrets.0",
+		},
+		{
+			description:       "entry without a name is rejected",
+			options:           map[string]string{"imagePullSecrets[0].secret": "registry-secret"},
+			rejectedValuePath: "imagePullSecrets.0",
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.description, func(t *testing.T) {
+			options := &helm.Options{
+				SetValues:      tc.options,
+				KubectlOptions: k8s.NewKubectlOptions("", "", "k8s-device-plugin-test"),
+				Logger:         logger.Discard,
+			}
+
+			output, err := helm.RenderTemplateE(t, options, helmChartPath, "nvidia-device-plugin", []string{"templates/daemonset-device-plugin.yml"})
+			if tc.rejectedValuePath != "" {
+				requireSchemaRejection(t, err, tc.rejectedValuePath)
+				return
+			}
+			require.NoError(t, err)
+
+			var daemonset appsv1.DaemonSet
+			helm.UnmarshalK8SYaml(t, output, &daemonset)
+			require.Equal(t, tc.expectedImagePullSecrets, daemonset.Spec.Template.Spec.ImagePullSecrets)
 		})
 	}
 }
