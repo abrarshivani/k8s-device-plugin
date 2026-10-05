@@ -47,9 +47,22 @@
 {{- fail $error }}
 {{- end }}
 
-{{- if not (or (kindIs "invalid" .Values.nvidiaDriverCapabilities) (typeIs "string" .Values.nvidiaDriverCapabilities)) }}
+{{- $movedValueMessages := list }}
+{{- $clearMovedValueArgs := list }}
+{{- $newValueNames := list }}
+{{- range $movedValueName := list "noTimestamp" "sleepInterval" }}
+{{- if not (kindIs "invalid" (index $.Values $movedValueName)) }}
+{{- $movedValueMessages = append $movedValueMessages (printf "Value '%s' has moved to 'gfd.%s'." $movedValueName $movedValueName) }}
+{{- $clearMovedValueArgs = append $clearMovedValueArgs (printf "--set %s=null" $movedValueName) }}
+{{- $newValueNames = append $newValueNames (printf "'gfd.%s'" $movedValueName) }}
+{{- end }}
+{{- end }}
+{{- if $movedValueMessages }}
 {{- $error := "" }}
-{{- $error = printf "%s\nValue 'nvidiaDriverCapabilities' must be a string, got %s: %v" $error (kindOf .Values.nvidiaDriverCapabilities) .Values.nvidiaDriverCapabilities }}
-{{- $error = printf "%s\nSet it to a comma-separated list of capabilities such as \"compute,utility\" or \"all\", or to null to leave it unset." $error }}
+{{- $error = printf "%s\n%s" $error (join "\n" $movedValueMessages) }}
+{{- $error = printf "%s\nTo upgrade a release that set these values, add '%s' and use --reset-then-reuse-values instead of --reuse-values." $error (join " " $clearMovedValueArgs) }}
+{{- $error = printf "%s\nSet %s in the same upgrade to keep the setting." $error (join " and " $newValueNames) }}
+{{- $error = printf "%s\n--reuse-values cannot remove a value stored in the release." $error }}
+{{- $error = printf "%s\nHelm releases before 3.14 lack --reset-then-reuse-values: upgrade without --reuse-values and pass all values again." $error }}
 {{- fail $error }}
 {{- end }}
