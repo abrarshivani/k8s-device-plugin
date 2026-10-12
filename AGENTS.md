@@ -112,6 +112,18 @@ commit the regenerated mock.
   [.github/PULL_REQUEST_TEMPLATE.md](.github/PULL_REQUEST_TEMPLATE.md) and explain the motivation
   rather than restating the diff.
 
+## Cursor Cloud specific instructions
+
+- The pinned Go toolchain version is defined in `deployments/container/Dockerfile` and exposed by
+  `hack/golang-version.sh`. Cloud Agent `install` runs [.cursor/cloud-agent-install.sh](.cursor/cloud-agent-install.sh),
+  which installs that Go release, CGO build dependencies, `golangci-lint`, `helm`, and `moq`, then
+  runs `go mod download` against the checked-in `vendor/` tree.
+- Use `make build`, `make cmds`, `make check`, `make test`, and `make test-helm` for validation.
+  Do not report `make test-e2e` as passing without a live Kubernetes cluster and NVIDIA GPUs.
+- Running the device plugin or GFD binaries against a real kubelet requires NVIDIA drivers and GPU
+  hardware on the node. In Cloud Agents, smoke-test with `make cmds` and
+  `./nvidia-device-plugin --version` only.
+
 ## Things to avoid
 
 - Never commit credentials, API keys, tokens, passwords, kubeconfigs, or private keys.
